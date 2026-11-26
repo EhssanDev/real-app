@@ -16,19 +16,37 @@ class Parcel(
     var photo: String,
     var label: String,
     val created: Long,
-    var delivered: Long
+    var delivered: Long,
+    var gid: String = "",
+    var updated: Long = 0,
+    var by: String = ""
 )
 
-class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, "parcels.db", null, 1) {
+class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, "parcels.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE parcels(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, tracking TEXT, " +
-                "shelf TEXT, note TEXT, photo TEXT, label TEXT, created INTEGER, delivered INTEGER)"
+                "shelf TEXT, note TEXT, photo TEXT, label TEXT, created INTEGER, delivered INTEGER, " +
+                "gid TEXT, updated INTEGER DEFAULT 0, addedBy TEXT)"
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE parcels ADD COLUMN gid TEXT")
+            db.execSQL("ALTER TABLE parcels ADD COLUMN updated INTEGER DEFAULT 0")
+            db.execSQL("ALTER TABLE parcels ADD COLUMN addedBy TEXT")
+            val ids = ArrayList<Long>()
+            db.rawQuery("SELECT id FROM parcels", null).use { c -> while (c.moveToNext()) ids.add(c.getLong(0)) }
+            for (i in ids) {
+                db.execSQL(
+                    "UPDATE parcels SET gid=?, updated=created WHERE id=?",
+                    arrayOf<Any>(java.util.UUID.randomUUID().toString(), i)
+                )
+            }
+        }
+    }
 
     private fun values(p: Parcel): ContentValues {
         val v = ContentValues()
@@ -40,15 +58,19 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, "parcels.db", 
         v.put("label", p.label)
         v.put("created", p.created)
         v.put("delivered", p.delivered)
+        v.put("gid", p.gid)
+        v.put("updated", p.updated)
+        v.put("addedBy", p.by)
         return v
     }
 
     private fun read(c: Cursor) = Parcel(
         c.getLong(0), c.getString(1) ?: "", c.getString(2) ?: "", c.getString(3) ?: "",
-        c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getLong(7), c.getLong(8)
+        c.getString(4) ?: "", c.getString(5) ?: "", c.getString(6) ?: "", c.getLong(7), c.getLong(8),
+        c.getString(9) ?: "", c.getLong(10), c.getString(11) ?: ""
     )
 
-    private val cols = "id,name,tracking,shelf,note,photo,label,created,delivered"
+    private val cols = "id,name,tracking,shelf,note,photo,label,created,delivered,gid,updated,addedBy"
 
     fun insert(p: Parcel): Long = writableDatabase.insert("parcels", null, values(p))
 
@@ -58,6 +80,31 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx.applicationContext, "parcels.db", 
 
     fun delete(id: Long) {
         writableDatabase.delete("parcels", "id=?", arrayOf(id.toString()))
+    }
+
+    fun getByGid(gid: String): Parcel? {
+        readableDatabase.rawQuery("SELECT $cols FROM parcels WHERE gid=?", arrayOf(gid)).use { c ->
+            return if (c.moveToFirst()) read(c) else null
+        }
+    }
+
+    /** Applies a parcel that came from the cloud. Returns 1 if inserted, 2 if updated, 0 if ignored. */
+    fun upsertRemote(p: Parcel): Int {
+        val old = getByGid(p.gid)
+        if (old == null) {
+            writableDatabase.insert("parcels", null, values(p))
+            return 1
+        }
+        if (p.updated < old.updated) return 0
+        val p2 = Parcel(old.id, p.name, p.tracking, p.shelf, p.note, p.photo, p.label, p.created, p.delivered, p.gid, p.updated, p.by)
+        update(p2)
+        return 2
+    }
+
+    fun deleteByGid(gid: String): Parcel? {
+        val old = getByGid(gid) ?: return null
+        delete(old.id)
+        return old
     }
 
     fun get(id: Long): Parcel? {

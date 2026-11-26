@@ -14,7 +14,7 @@ import java.io.FileOutputStream
 import java.util.concurrent.Executors
 
 object Img {
-    private const val MAX = 1280
+    private const val MAX = 1100
 
     fun dir(ctx: Context): File {
         val d = File(ctx.filesDir, "photos")
@@ -54,8 +54,8 @@ object Img {
             m.postScale(scale, scale)
             if (rot != 0) m.postRotate(rot.toFloat())
             val out = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
-            val name = prefix + "_" + System.currentTimeMillis() + ".jpg"
-            FileOutputStream(File(dir(ctx), name)).use { out.compress(Bitmap.CompressFormat.JPEG, 82, it) }
+            val name = prefix + "_" + System.currentTimeMillis() + "_" + (1000 + java.util.Random().nextInt(9000)) + ".jpg"
+            FileOutputStream(File(dir(ctx), name)).use { out.compress(Bitmap.CompressFormat.JPEG, 75, it) }
             name
         } catch (e: Exception) {
             null

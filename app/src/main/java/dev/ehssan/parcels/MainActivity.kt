@@ -53,6 +53,8 @@ class Draft {
     var note = ""
     var photo = ""
     var label = ""
+    var gid = ""
+    var by = ""
     var lines: List<String> = emptyList()
     var status = ""
     val newFiles = ArrayList<String>()
@@ -90,6 +92,8 @@ class MainActivity : Activity() {
 
     private var homeTab = 0
     private var homeQuery = ""
+    private var homeRefresh: (() -> Unit)? = null
+    private var syncState = ""
 
     private var draft = Draft()
     private var captureTarget = 0
@@ -185,7 +189,33 @@ class MainActivity : Activity() {
     private fun purge() {
         val days = retentionDays()
         if (days <= 0) return
-        for (p in db.purgeDelivered(System.currentTimeMillis() - days * DAY)) deleteFiles(p)
+        for (p in db.purgeDelivered(System.currentTimeMillis() - days * DAY)) {
+            deleteFiles(p)
+            Sync.remove(this, p)
+        }
+    }
+
+    private fun touch(p: Parcel) {
+        p.updated = System.currentTimeMillis()
+        db.update(p)
+        Sync.push(this, p)
+    }
+
+    private fun wipe(p: Parcel) {
+        deleteFiles(p)
+        db.delete(p.id)
+        Sync.remove(this, p)
+    }
+
+    private fun startSync() {
+        Sync.onChange = { homeRefresh?.invoke() }
+        Sync.onNewParcel = { p ->
+            toast("شحنة جديدة: " + p.name + if (p.by.isNotEmpty()) " (" + p.by + ")" else "")
+        }
+        Sync.onState = { s ->
+            syncState = s
+        }
+        Sync.start(this, db)
     }
 
     private fun deleteFiles(p: Parcel) {
@@ -211,6 +241,15 @@ class MainActivity : Activity() {
         purge()
         showHome()
         showLock()
+        if (Sync.enabled(this)) startSync() else if (!Sync.skipped(this)) showSyncSetup(false)
+    }
+
+    override fun onDestroy() {
+        Sync.onChange = null
+        Sync.onNewParcel = null
+        Sync.onState = null
+        Sync.stop()
+        super.onDestroy()
     }
 
     override fun onPause() {
@@ -252,6 +291,7 @@ class MainActivity : Activity() {
     }
 
     private fun setScreen(v: View) {
+        homeRefresh = null
         content.removeAllViews()
         content.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
     }
@@ -333,13 +373,16 @@ class MainActivity : Activity() {
         empty.setPadding(0, dp(60), 0, 0)
         col.addView(list, lin(MATCH, 0, 1f))
 
-        val source = db.all(homeTab == 1)
         val adapter = ParcelAdapter()
         list.adapter = adapter
 
         fun refresh() {
             homeQuery = search.text.toString()
-            val shown = Search.filter(source, homeQuery)
+            val w = db.all(false)
+            val od = w.count { (System.currentTimeMillis() - it.created) / DAY >= warnDays() }
+            sub.text = "${w.size} شحنة بانتظار الاستلام" + if (od > 0) " · $od متأخرة" else ""
+            sub.setTextColor(if (od > 0) red else textSub)
+            val shown = Search.filter(db.all(homeTab == 1), homeQuery)
             adapter.set(shown)
             empty.text = if (homeQuery.isNotBlank()) "لا نتائج مطابقة" else "لا توجد شحنات"
             empty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
@@ -375,6 +418,7 @@ class MainActivity : Activity() {
 
         setScreen(screen)
         refresh()
+        homeRefresh = { refresh() }
     }
 
     inner class ParcelAdapter : BaseAdapter() {
@@ -434,7 +478,8 @@ class MainActivity : Activity() {
                 s.setPadding(dp(8), dp(3), dp(8), dp(3))
                 meta.addView(s)
             }
-            val whenText = if (p.delivered > 0) "سُلّمت " + ago(p.delivered) else ago(p.created)
+            val whenText = (if (p.delivered > 0) "سُلّمت " + ago(p.delivered) else ago(p.created)) +
+                (if (p.by.isNotEmpty()) " · " + p.by else "")
             val w = label(whenText, 12f, if (p.delivered > 0) textSub else waitColor(p.created), true)
             w.setPadding(if (p.shelf.isNotEmpty()) dp(10) else 0, 0, 0, 0)
             meta.addView(w)
@@ -485,6 +530,8 @@ class MainActivity : Activity() {
                 draft.note = edit.note
                 draft.photo = edit.photo
                 draft.label = edit.label
+                draft.gid = edit.gid
+                draft.by = edit.by
             }
         }
         val editing = draft.editId != 0L
@@ -765,11 +812,18 @@ class MainActivity : Activity() {
                 draft.editId, draft.name.trim(), draft.tracking.trim(), draft.shelf.trim(), draft.note.trim(),
                 draft.photo, draft.label,
                 if (draft.editId != 0L) draft.created else System.currentTimeMillis(),
-                draft.delivered
+                draft.delivered,
+                if (draft.gid.isNotEmpty()) draft.gid else java.util.UUID.randomUUID().toString(),
+                System.currentTimeMillis(),
+                if (draft.editId != 0L) draft.by else Sync.who(this)
             )
             val eid = draft.editId
             if (eid == 0L) db.insert(p) else db.update(p)
-            for (f in draft.oldFiles) Img.file(this, f).delete()
+            Sync.push(this, p)
+            for (f in draft.oldFiles) {
+                Img.file(this, f).delete()
+                Sync.removeImage(this, f)
+            }
             draft = Draft()
             toast("تم الحفظ")
             if (andNew) showAdd(null) else if (eid != 0L) showDetail(eid) else showHome()
@@ -902,8 +956,11 @@ class MainActivity : Activity() {
             }, lin(WRAP, WRAP).also { it.marginStart = dp(8) })
             info.addView(r)
         }
+        if (p.by.isNotEmpty()) {
+            info.addView(label("أضافها: " + p.by, 13f, textSub).also { it.setPadding(0, dp(12), 0, 0) })
+        }
         val recv = label("استُلمت: " + dateFmt.format(Date(p.created)) + " (" + ago(p.created) + ")", 13f, textSub)
-        recv.setPadding(0, dp(12), 0, 0)
+        recv.setPadding(0, dp(4), 0, 0)
         info.addView(recv)
         if (p.delivered > 0) {
             info.addView(label("سُلّمت: " + dateFmt.format(Date(p.delivered)), 13f, green, true).also {
@@ -922,7 +979,7 @@ class MainActivity : Activity() {
                     .setMessage("تسليم الشحنة إلى ${p.name}؟")
                     .setPositiveButton("تسليم") { _, _ ->
                         p.delivered = System.currentTimeMillis()
-                        db.update(p)
+                        touch(p)
                         toast("تم التسليم")
                         showHome()
                     }
@@ -932,7 +989,7 @@ class MainActivity : Activity() {
         } else {
             col.addView(secondary("إرجاع إلى الشحنات الموجودة") {
                 p.delivered = 0L
-                db.update(p)
+                touch(p)
                 homeTab = 0
                 showDetail(p.id)
             }, lin(MATCH, WRAP).also { it.topMargin = dp(18) })
@@ -945,8 +1002,7 @@ class MainActivity : Activity() {
                 AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                     .setMessage("حذف هذه الشحنة نهائياً مع صورها؟")
                     .setPositiveButton("حذف") { _, _ ->
-                        deleteFiles(p)
-                        db.delete(p.id)
+                        wipe(p)
                         showHome()
                     }
                     .setNegativeButton("إلغاء", null)
@@ -1005,6 +1061,9 @@ class MainActivity : Activity() {
             cfg().edit().putInt("warn", next(warn, listOf(3, 5, 7, 10, 14))).apply()
             showSettings()
         })
+        col.addView(settingRow("مزامنة الكشك", if (Sync.enabled(this)) Sync.kiosk(this) + " · " + syncState else "غير مفعّلة") {
+            showSyncSetup(true)
+        })
         col.addView(settingRow("تغيير رمز القفل", "") {
             lock.showUnlock("الرمز الحالي", false, true, {
                 lock.showSetup(true, { toast("تم تغيير الرمز") }, null)
@@ -1013,9 +1072,12 @@ class MainActivity : Activity() {
         col.addView(settingRow("تصدير القائمة (CSV)", "") { exportCsv() })
         col.addView(settingRow("حذف كل البيانات", "") {
             AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setMessage("سيتم حذف كل الشحنات وصورها نهائياً. متابعة؟")
+                .setMessage("سيتم حذف كل الشحنات وصورها نهائياً" + (if (Sync.enabled(this)) " عند جميع العاملين" else "") + ". متابعة؟")
                 .setPositiveButton("حذف الكل") { _, _ ->
-                    for (p in db.clearAll()) deleteFiles(p)
+                    for (p in db.clearAll()) {
+                        deleteFiles(p)
+                        Sync.remove(this, p)
+                    }
                     toast("تم الحذف")
                     showHome()
                 }
@@ -1056,5 +1118,68 @@ class MainActivity : Activity() {
             skipLock = false
             toast("تعذر التصدير")
         }
+    }
+
+    // ---------- sync setup ----------
+
+    private fun showSyncSetup(fromSettings: Boolean) {
+        backAction = { if (fromSettings) showSettings() else showHome() }
+        val sv = ScrollView(this)
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.setPadding(dp(20), dp(24), dp(20), dp(28))
+        sv.addView(col)
+        col.addView(label("ربط الكشك", 26f, Color.WHITE, true))
+        col.addView(
+            label(
+                "أدخل نفس الرمز في جوالات كل العاملين لتظهر الشحنات عند الجميع فوراً. اختر رمزاً طويلاً يصعب تخمينه، فهو ما يفصل بياناتكم عن غيركم.",
+                14f, textSub
+            ).also { it.setPadding(0, dp(8), 0, dp(8)) }
+        )
+        val code = field(col, "رمز الكشك", true)
+        code.setText(Sync.kiosk(this))
+        val who = field(col, "اسمك (يظهر على الشحنات التي تضيفها)", false)
+        who.setText(Sync.who(this))
+        col.addView(primary("ربط") {
+            val c = Sync.normCode(code.text.toString())
+            val w = who.text.toString().trim()
+            if (c.length < 6) {
+                toast("الرمز قصير، استخدم 6 أحرف أو أرقام على الأقل")
+                return@primary
+            }
+            val old = Sync.kiosk(this)
+            val go = {
+                if (old != c) {
+                    for (p in db.clearAll()) deleteFiles(p)
+                }
+                Sync.connect(this, c, w)
+                startSync()
+                toast("تم الربط")
+                if (fromSettings) showSettings() else showHome()
+            }
+            if (old.isNotEmpty() && old != c) {
+                AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setMessage("سيُمسح ما على هذا الجوال ويُحمَّل محتوى الكشك الجديد. متابعة؟")
+                    .setPositiveButton("متابعة") { _, _ -> go() }
+                    .setNegativeButton("إلغاء", null)
+                    .show()
+            } else {
+                go()
+            }
+        }, lin(MATCH, WRAP).also { it.topMargin = dp(22) })
+        if (Sync.enabled(this)) {
+            col.addView(secondary("فصل المزامنة عن هذا الجوال") {
+                Sync.disconnect(this)
+                syncState = ""
+                toast("تم الفصل")
+                showSettings()
+            }, lin(MATCH, WRAP).also { it.topMargin = dp(10) })
+        } else {
+            col.addView(secondary("تخطي (بدون مزامنة)") {
+                Sync.skip(this)
+                if (fromSettings) showSettings() else showHome()
+            }, lin(MATCH, WRAP).also { it.topMargin = dp(10) })
+        }
+        setScreen(sv)
     }
 }
