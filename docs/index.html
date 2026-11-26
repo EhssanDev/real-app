@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mina's Kiosk DHL</title>
+<meta name="theme-color" content="#12141a">
+<style>
+:root{--bg:#12141a;--card:#1e222c;--chip:#2c313e;--text:#edeff4;--sub:#9aa3b2;--amber:#f5a623;--green:#34d399;--red:#f87171;--dark:#1c180c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Tahoma,sans-serif}
+button,input,textarea,select{font:inherit;color:inherit}
+#app{height:100%;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #232834}
+header h1{margin:0;font-size:20px}
+header .sub{font-size:13px;color:var(--sub)}
+header .sub.late{color:var(--red)}
+header .grow{flex:1}
+.ibtn{background:var(--chip);border:0;border-radius:12px;padding:9px 14px;cursor:pointer;font-weight:600}
+.ibtn:hover{filter:brightness(1.15)}
+.primary{background:var(--amber);color:var(--dark);border:0;border-radius:14px;padding:12px 18px;font-weight:700;cursor:pointer}
+.primary:hover{filter:brightness(1.08)}
+.danger{background:#783030}
+main{flex:1;display:grid;grid-template-columns:minmax(320px,440px) 1fr;min-height:0}
+.left{display:flex;flex-direction:column;min-height:0;border-inline-end:1px solid #232834}
+.tools{padding:14px 16px 8px}
+.search{width:100%;background:var(--card);border:0;border-radius:16px;padding:14px 16px;font-size:16px;outline:none}
+.tabs{display:flex;gap:8px;margin-top:12px}
+.tab{background:var(--chip);border:0;border-radius:12px;padding:8px 14px;cursor:pointer;font-weight:600}
+.tab.on{background:var(--amber);color:var(--dark)}
+.list{flex:1;overflow:auto;padding:4px 16px 16px}
+.row{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:16px;padding:10px;margin-bottom:8px;cursor:pointer;border:2px solid transparent}
+.row.sel{border-color:var(--amber)}
+.thumb{width:68px;height:68px;border-radius:12px;background:var(--chip);object-fit:cover;flex:none}
+.row .info{min-width:0;flex:1}
+.row .nm{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .tr{font-size:12px;color:var(--sub);direction:ltr;text-align:start;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;gap:8px;align-items:center;margin-top:5px;font-size:12px;font-weight:600}
+.badge{background:var(--amber);color:var(--dark);border-radius:8px;padding:2px 8px}
+.right{overflow:auto;padding:20px;min-width:0}
+.empty{color:var(--sub);text-align:center;padding:50px 10px}
+.bigimg{background:#000;border-radius:18px;height:min(60vh,520px);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.bigimg img{max-width:100%;max-height:100%;cursor:zoom-in}
+.panel{background:var(--card);border-radius:18px;padding:16px 18px;margin-top:14px}
+.panel h2{margin:0;font-size:26px}
+.ltr{direction:ltr;unicode-bidi:isolate}
+.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.sw{display:flex;gap:8px;margin-top:10px}
+dialog{background:var(--bg);color:var(--text);border:1px solid #2a3040;border-radius:20px;padding:0;width:min(560px,94vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+.dlg{padding:20px;overflow:auto;max-height:90vh}
+.dlg h3{margin:0 0 6px;font-size:22px}
+label.f{display:block;margin-top:14px;font-size:12px;font-weight:700;color:var(--sub)}
+input.t,textarea.t{width:100%;margin-top:6px;background:var(--card);border:0;border-radius:12px;padding:12px 14px;font-size:16px;outline:none}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.slot{background:var(--card);border-radius:16px;height:150px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.slot .bar{position:absolute;bottom:6px;display:flex;gap:6px;z-index:2}
+.slot .bar button{background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600}
+.slot .ttl{font-weight:700;color:var(--sub)}
+.status{font-size:13px;font-weight:600;color:var(--green);margin-top:8px;min-height:18px}
+.status.busy{color:var(--amber)}
+.line{background:var(--chip);border:0;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:13px}
+.setup{max-width:480px;margin:8vh auto;padding:24px}
+.setup h1{margin:0 0 8px}
+.setup p{color:var(--sub);line-height:1.6}
+video{width:100%;border-radius:14px;background:#000}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2c313e;padding:10px 18px;border-radius:12px;font-weight:600;z-index:99;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+@media (max-width:820px){main{grid-template-columns:1fr}.right{display:none}body.showdetail .left{display:none}body.showdetail .right{display:block}.back{display:inline-block!important}}
+.back{display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dlg"></dialog>
+<dialog id="full"><img id="fullimg" style="width:100%;display:block"></dialog>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth, signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDoc} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAvAfSRCUNy7tJ4qwqAcSJ1MaYedyU1SLM",
+  authDomain: "parcel-desk-kiosk.firebaseapp.com",
+  projectId: "parcel-desk-kiosk",
+  storageBucket: "parcel-desk-kiosk.firebasestorage.app",
+  messagingSenderId: "692424827243",
+  appId: "1:692424827243:web:640ab1d53d0cd710026c2e"
+};
+const fapp = initializeApp(firebaseConfig);
+const auth = getAuth(fapp);
+const fdb = getFirestore(fapp);
+
+// ---------------- i18n ----------------
+const T = {
+  ar:{app:"Mina's Kiosk DHL",waiting:"موجودة",done:"مسلّمة",search:"اكتب اسم الزبون أو رقم الشحنة",add:"＋ شحنة جديدة",
+    n_wait:"شحنة بانتظار الاستلام",n_late:"متأخرة",none:"لا توجد شحنات",nomatch:"لا نتائج مطابقة",pick:"اختر شحنة لعرضها",
+    settings:"الإعدادات",back:"رجوع",parcel:"الشحنة",label:"الملصق",nophoto:"لا توجد صورة",shelf:"الرف",copy:"نسخ",copied:"تم النسخ",
+    track:"تتبع DHL",by:"أضافها",received:"استُلمت",deliveredOn:"سُلّمت",handover:"تم التسليم",handq:"تسليم الشحنة إلى",undo:"إرجاع إلى الموجودة",
+    edit:"تعديل",del:"حذف",delq:"حذف هذه الشحنة نهائياً مع صورها؟",yes:"نعم",cancel:"إلغاء",save:"حفظ",saveNew:"حفظ وإضافة أخرى",
+    newTitle:"شحنة جديدة",editTitle:"تعديل الشحنة",name:"اسم المستلم *",tracking:"رقم التتبع",shelfF:"مكان الرف (مثل A3)",note:"ملاحظة",
+    upload:"رفع",camera:"كاميرا",shootParcel:"صورة الشحنة",scanLabel:"صورة الملصق",reading:"جارٍ قراءة الملصق...",
+    readDone:"تمت القراءة",foundT:"تم العثور على رقم التتبع",noT:"لم يُعثر على رقم تتبع",andName:"والاسم",pickName:"؛ اختر الاسم من الأسطر",
+    needName:"اكتب اسم المستلم",saved:"تم الحفظ",dup:"رقم التتبع هذا موجود مسبقاً. حفظ على أي حال؟",
+    setupT:"ربط الكشك",setupP:"أدخل نفس رمز الكشك المستخدم في الجوال لتظهر نفس الشحنات هنا.",code:"رمز الكشك",who:"اسمك",link:"ربط",
+    codeShort:"الرمز قصير (6 أحرف على الأقل)",lang:"اللغة",retention:"حذف المسلّمة بعد",days:"أيام",never:"أبداً",disconnect:"فصل هذا الجهاز",
+    today:"اليوم",yesterday:"أمس",ago:"قبل {n} أيام",newFrom:"شحنة جديدة",offline:"غير متصل",online:"متصل",
+    nocam:"تعذر فتح الكاميرا",snap:"التقاط",close:"إغلاق",ocrFail:"تعذر تشغيل قارئ الملصق",loadingOcr:"تحميل قارئ النصوص (أول مرة فقط)...",
+    lineHint:"اضغط سطراً ليوضع في حقل الاسم:",authFail:"تعذر الاتصال، تحقق من الإنترنت وأن النطاق مضاف في Firebase"},
+  en:{app:"Mina's Kiosk DHL",waiting:"Waiting",done:"Delivered",search:"Customer name or tracking number",add:"＋ New parcel",
+    n_wait:"parcels waiting",n_late:"late",none:"No parcels",nomatch:"No matches",pick:"Select a parcel to view it",
+    settings:"Settings",back:"Back",parcel:"Parcel",label:"Label",nophoto:"No photo",shelf:"Shelf",copy:"Copy",copied:"Copied",
+    track:"Track on DHL",by:"Added by",received:"Received",deliveredOn:"Delivered",handover:"Mark as delivered",handq:"Hand the parcel over to",undo:"Move back to waiting",
+    edit:"Edit",del:"Delete",delq:"Delete this parcel and its photos permanently?",yes:"Yes",cancel:"Cancel",save:"Save",saveNew:"Save and add another",
+    newTitle:"New parcel",editTitle:"Edit parcel",name:"Recipient name *",tracking:"Tracking number",shelfF:"Shelf spot (e.g. A3)",note:"Note",
+    upload:"Upload",camera:"Camera",shootParcel:"Parcel photo",scanLabel:"Label photo",reading:"Reading label...",
+    readDone:"Scan done",foundT:"Tracking number found",noT:"No tracking number found",andName:"and name",pickName:"; pick the name from the lines",
+    needName:"Enter the recipient name",saved:"Saved",dup:"This tracking number already exists. Save anyway?",
+    setupT:"Link kiosk",setupP:"Enter the same kiosk code used on the phones to see the same parcels here.",code:"Kiosk code",who:"Your name",link:"Link",
+    codeShort:"Code too short (at least 6 characters)",lang:"Language",retention:"Delete delivered after",days:"days",never:"Never",disconnect:"Disconnect this device",
+    today:"Today",yesterday:"Yesterday",ago:"{n} days ago",newFrom:"New parcel",offline:"Offline",online:"Connected",
+    nocam:"Could not open the camera",snap:"Capture",close:"Close",ocrFail:"Label reader failed to start",loadingOcr:"Loading text reader (first time only)...",
+    lineHint:"Tap a line to put it in the name field:",authFail:"Could not connect; check internet and that this domain is authorized in Firebase"},
+  de:{app:"Mina's Kiosk DHL",waiting:"Vorhanden",done:"Übergeben",search:"Kundenname oder Sendungsnummer",add:"＋ Neues Paket",
+    n_wait:"Pakete warten",n_late:"überfällig",none:"Keine Pakete",nomatch:"Keine Treffer",pick:"Paket zum Anzeigen auswählen",
+    settings:"Einstellungen",back:"Zurück",parcel:"Paket",label:"Etikett",nophoto:"Kein Foto",shelf:"Regal",copy:"Kopieren",copied:"Kopiert",
+    track:"Bei DHL verfolgen",by:"Hinzugefügt von",received:"Eingegangen",deliveredOn:"Übergeben",handover:"Als übergeben markieren",handq:"Paket übergeben an",undo:"Zurück zu vorhanden",
+    edit:"Bearbeiten",del:"Löschen",delq:"Dieses Paket samt Fotos endgültig löschen?",yes:"Ja",cancel:"Abbrechen",save:"Speichern",saveNew:"Speichern und weiteres hinzufügen",
+    newTitle:"Neues Paket",editTitle:"Paket bearbeiten",name:"Empfängername *",tracking:"Sendungsnummer",shelfF:"Regalplatz (z. B. A3)",note:"Notiz",
+    upload:"Hochladen",camera:"Kamera",shootParcel:"Paketfoto",scanLabel:"Etikettfoto",reading:"Etikett wird gelesen...",
+    readDone:"Gelesen",foundT:"Sendungsnummer gefunden",noT:"Keine Sendungsnummer gefunden",andName:"und Name",pickName:"; Name aus den Zeilen wählen",
+    needName:"Empfängernamen eingeben",saved:"Gespeichert",dup:"Diese Sendungsnummer gibt es schon. Trotzdem speichern?",
+    setupT:"Kiosk verbinden",setupP:"Gib denselben Kiosk-Code wie auf den Handys ein, um hier dieselben Pakete zu sehen.",code:"Kiosk-Code",who:"Dein Name",link:"Verbinden",
+    codeShort:"Code zu kurz (mindestens 6 Zeichen)",lang:"Sprache",retention:"Übergebene löschen nach",days:"Tage",never:"Nie",disconnect:"Dieses Gerät trennen",
+    today:"Heute",yesterday:"Gestern",ago:"vor {n} Tagen",newFrom:"Neues Paket",offline:"Offline",online:"Verbunden",
+    nocam:"Kamera konnte nicht geöffnet werden",snap:"Aufnehmen",close:"Schließen",ocrFail:"Etikettleser konnte nicht gestartet werden",loadingOcr:"Textleser wird geladen (nur beim ersten Mal)...",
+    lineHint:"Zeile antippen, um sie ins Namensfeld zu übernehmen:",authFail:"Verbindung fehlgeschlagen; Internet prüfen und ob die Domain in Firebase freigegeben ist"}
+};
+const LN = {ar:"العربية",en:"English",de:"Deutsch"};
+let lang = localStorage.getItem("lang") || ({ar:1,de:1,en:1}[(navigator.language||"en").slice(0,2)] ? (navigator.language||"en").slice(0,2) : "en");
+const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";}
+
+// ---------------- search (same rules as the phone app) ----------------
+const norm = s => {
+  let x = String(s||"").toLowerCase().normalize("NFD").replace(/\p{M}+/gu,"");
+  x = x.replace(/ß/g,"ss").replace(/ø/g,"o").replace(/æ/g,"ae").replace(/ı/g,"i");
+  x = x.replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه");
+  return x.replace(/ae/g,"a").replace(/oe/g,"o").replace(/ue/g,"u");
+};
+const toks = s => norm(s).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+function lev(a,b){if(a===b)return 0;let p=Array.from({length:b.length+1},(_,i)=>i),c=new Array(b.length+1);
+  for(let i=1;i<=a.length;i++){c[0]=i;for(let j=1;j<=b.length;j++){c[j]=Math.min(c[j-1]+1,p[j]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));}[p,c]=[c,p];}return p[b.length];}
+const allowed = n => n>=7?2:n>=4?1:0;
+function cost(q,w){if(w.startsWith(q))return 0;if(q.length>=3&&w.includes(q))return 1;const a=allowed(q.length);if(!a)return -1;
+  const d=Math.min(lev(q,w.slice(0,q.length)),lev(q,w));return d<=a?1+d:-1;}
+function filterParcels(list,query){const qs=toks(query);if(!qs.length)return list;const out=[];
+  for(const p of list){const words=[...toks(p.name),...toks(p.tracking),...toks(p.shelf),...toks(p.note)];let tot=0,ok=true;
+    for(const q of qs){let best=-1;for(const w of words){const c=cost(q,w);if(c>=0&&(best<0||c<best))best=c;}if(best<0){ok=false;break;}tot+=best;}
+    if(ok)out.push([tot,p]);}
+  return out.sort((a,b)=>a[0]-b[0]||b[1].created-a[1].created).map(x=>x[1]);}
+
+// ---------------- label reading (name + tracking) ----------------
+const trackRe=/(JJD\d{10,}|\d{12,20})/g;
+const postRe=/^(?:[A-Za-z]{1,2}[- ]?)?\d{4,5}\s+\p{L}.*/u;
+const nameKeys=["ship to","deliver to","recipient","empfänger","empfaenger","lieferadresse","versand an","to:","an:"];
+const senderWords=["absender","sender","retoure","return","rücksendung","from:","von:"];
+const noise=["dhl","paket","germany","deutschland","austria","österreich","sendung","tracking","packstation","gogreen","www.","einlieferung","empfänger","empfaenger","ship to","deliver to","recipient","absender","sender","express","standard","weight","gewicht","retoure","versand","postfiliale"];
+const trackingIn=s=>{const c=String(s).replace(/[ -]/g,"");const m=[...c.matchAll(trackRe)].map(x=>x[0]);return m.sort((a,b)=>b.length-a.length)[0]||null;};
+function looksLikeName(s){s=s.trim();if(s.length<3||s.length>40)return false;if(/\d|@/.test(s))return false;
+  const compact=[...s].filter(c=>!/\s/.test(c)).length;const letters=[...s].filter(c=>/\p{L}/u.test(c)).length;
+  if(!compact||letters<compact*0.8)return false;if(s.split(/\s+/).length>5)return false;const low=s.toLowerCase();return !noise.some(n=>low.includes(n));}
+function cleanName(raw){let s=raw.trim().replace(/^[,;:\-.\s]+|[,;:\-.\s]+$/g,"");s=s.replace(/^(herr|frau|mr|mrs|ms)\.?\s+/i,"");
+  if(!/\p{Ll}/u.test(s)){s=s.toLowerCase().split(" ").map(w=>{let up=true,o="";for(const c of w){o+=up?c.toUpperCase():c;up=c==="-"||c==="'";}return o;}).join(" ");}return s;}
+function guessName(lines){
+  for(let i=0;i<lines.length;i++){const low=lines[i].text.toLowerCase();const key=nameKeys.find(k=>low.includes(k));if(!key)continue;
+    const after=lines[i].text.slice(low.indexOf(key)+key.length).replace(/^[\s:\-]+|[\s:\-]+$/g,"");
+    if(looksLikeName(after))return cleanName(after);const nx=lines[i+1]&&lines[i+1].text;if(nx&&looksLikeName(nx))return cleanName(nx);}
+  const sb=new Set();lines.forEach(l=>{const low=l.text.toLowerCase();if(senderWords.some(w=>low.includes(w)))sb.add(l.block);});
+  const posts=lines.map((l,i)=>i).filter(i=>postRe.test(lines[i].text.trim())&&!sb.has(lines[i].block));
+  for(const i of posts.reverse()){for(let j=i-1;j>=0&&i-j<=4;j--){const tx=lines[j].text;if(!/\d/.test(tx)&&looksLikeName(tx))return cleanName(tx);}}
+  return null;}
+let ocrWorker=null;
+async function runOcr(blobUrl,onStage){
+  onStage&&onStage("load");
+  if(!window.Tesseract){await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+  if(!ocrWorker)ocrWorker=await Tesseract.createWorker("deu+eng");
+  onStage&&onStage("read");
+  const r=await ocrWorker.recognize(blobUrl);
+  const lines=[];let blk=0;
+  for(const ln of String(r.data.text||"").split("\n")){const x=ln.trim();if(!x){blk++;continue;}if(x.length>=2)lines.push({text:x,block:blk});}
+  let tracking=null;
+  try{if("BarcodeDetector" in window){const img=await createImageBitmap(await (await fetch(blobUrl)).blob());const codes=await new BarcodeDetector().detect(img);
+      tracking=codes.map(c=>trackingIn(c.rawValue)).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||null;}}catch(e){}
+  if(!tracking)tracking=lines.map(l=>trackingIn(l.text)).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||null;
+  return {lines:[...new Set(lines.map(l=>l.text))].filter(x=>x.length<=60).slice(0,30),name:guessName(lines),tracking};}
+
+// ---------------- state ----------------
+const S={kiosk:localStorage.getItem("kiosk")||"",who:localStorage.getItem("who")||"",parcels:new Map(),tab:"wait",q:"",sel:null,state:"",unsub:null,first:true,ready:false,
+  retention:parseInt(localStorage.getItem("retention")||"14"),warn:7};
+const imgCache=new Map(), imgWait=new Map();
+const DAY=86400000;
+const root=()=>doc(fdb,"kiosks",S.kiosk);
+const parcelsCol=()=>collection(fdb,"kiosks",S.kiosk,"parcels");
+
+function toast(m){const d=document.createElement("div");d.className="toast";d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2200);}
+function ago(ts){const d=Math.floor((Date.now()-ts)/DAY);return d<=0?t("today"):d===1?t("yesterday"):t("ago").replace("{n}",d);}
+function waitColor(ts){const d=Math.floor((Date.now()-ts)/DAY);return d>=S.warn?"var(--red)":d>=S.warn-2?"var(--amber)":"var(--green)";}
+const fmt=ts=>new Date(ts).toLocaleString(lang==="ar"?"ar-EG-u-nu-latn":lang);
+
+async function getImage(name){
+  if(!name)return null;if(imgCache.has(name))return imgCache.get(name);
+  if(imgWait.has(name))return imgWait.get(name);
+  const p=(async()=>{for(let i=0;i<4;i++){try{const d=await getDoc(doc(fdb,"kiosks",S.kiosk,"images",name));
+      if(d.exists()){const u="data:image/jpeg;base64,"+d.data().data;imgCache.set(name,u);return u;}}catch(e){}
+      await new Promise(r=>setTimeout(r,3000));}return null;})();
+  imgWait.set(name,p);const u=await p;imgWait.delete(name);return u;}
+function fillImg(el,name){if(!name)return;if(imgCache.has(name)){el.src=imgCache.get(name);return;}getImage(name).then(u=>{if(u&&el.isConnected)el.src=u;});}
+
+// ---------------- sync ----------------
+async function start(){
+  if(S.unsub){S.unsub();S.unsub=null;}
+  if(!S.kiosk)return;
+  try{if(!auth.currentUser)await signInAnonymously(auth);}catch(e){toast(t("authFail"));S.state="";render();return;}
+  S.first=true;
+  S.unsub=onSnapshot(parcelsCol(),snap=>{
+    for(const ch of snap.docChanges()){
+      if(ch.type==="removed"){S.parcels.delete(ch.doc.id);if(S.sel===ch.doc.id)S.sel=null;continue;}
+      const d=ch.doc.data();const p={gid:ch.doc.id,name:d.name||"",tracking:d.tracking||"",shelf:d.shelf||"",note:d.note||"",photo:d.photo||"",label:d.label||"",
+        created:d.created||0,delivered:d.delivered||0,updated:d.updated||0,by:d.by||""};
+      const isNew=!S.parcels.has(p.gid);S.parcels.set(p.gid,p);
+      if(isNew&&!S.first&&!ch.doc.metadata.hasPendingWrites&&!p.delivered)toast(t("newFrom")+": "+p.name+(p.by?" ("+p.by+")":""));
+    }
+    S.first=false;S.state=snap.metadata.fromCache?t("offline"):t("online");purge();render();
+  },()=>{S.state=t("offline");render();});
+}
+async function purge(){
+  if(!S.retention)return;const lim=Date.now()-S.retention*DAY;
+  for(const p of [...S.parcels.values()])if(p.delivered&&p.delivered<lim)removeParcel(p,true);}
+async function pushParcel(p){
+  const m={name:p.name,tracking:p.tracking,shelf:p.shelf,note:p.note,photo:p.photo,label:p.label,created:p.created,delivered:p.delivered,updated:p.updated,by:p.by};
+  await setDoc(doc(fdb,"kiosks",S.kiosk,"parcels",p.gid),m);}
+async function pushImage(name,dataUrl){await setDoc(doc(fdb,"kiosks",S.kiosk,"images",name),{data:dataUrl.split(",")[1]});}
+async function removeParcel(p,silent){
+  await deleteDoc(doc(fdb,"kiosks",S.kiosk,"parcels",p.gid));
+  for(const n of [p.photo,p.label])if(n)deleteDoc(doc(fdb,"kiosks",S.kiosk,"images",n)).catch(()=>{});
+  S.parcels.delete(p.gid);if(S.sel===p.gid)S.sel=null;if(!silent)render();}
+async function touch(p){p.updated=Date.now();await pushParcel(p);render();}
+
+// ---------------- images ----------------
+async function shrink(blob){
+  const bmp=await createImageBitmap(blob,{imageOrientation:"from-image"});
+  const MAX=1100,sc=Math.min(1,MAX/Math.max(bmp.width,bmp.height));
+  const c=document.createElement("canvas");c.width=Math.round(bmp.width*sc);c.height=Math.round(bmp.height*sc);
+  c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+  return c.toDataURL("image/jpeg",0.75);}
+const newName=pre=>pre+"_"+Date.now()+"_"+(1000+Math.floor(Math.random()*9000))+".jpg";
+
+// ---------------- rendering ----------------
+const app=document.getElementById("app");
+function render(){
+  applyLang();
+  if(!S.kiosk){renderSetup();return;}
+  const all=[...S.parcels.values()];
+  const waiting=all.filter(p=>!p.delivered),done=all.filter(p=>p.delivered).sort((a,b)=>b.delivered-a.delivered);
+  const late=waiting.filter(p=>Math.floor((Date.now()-p.created)/DAY)>=S.warn).length;
+  const src=(S.tab==="wait"?waiting.sort((a,b)=>b.created-a.created):done);
+  const shown=filterParcels(src,S.q);
+  const keepQ=document.getElementById("q");const hadFocus=keepQ&&document.activeElement===keepQ;
+  app.innerHTML=`
+  <header>
+    <button class="ibtn back" id="back">←</button>
+    <div><h1>Mina's Kiosk DHL</h1>
+    <div class="sub ${late?"late":""}">${waiting.length} ${t("n_wait")}${late?" · "+late+" "+t("n_late"):""} <span style="opacity:.6">· ${esc(S.state)}</span></div></div>
+    <div class="grow"></div>
+    <button class="primary" id="add">${t("add")}</button>
+    <button class="ibtn" id="set">⚙</button>
+  </header>
+  <main>
+    <section class="left">
+      <div class="tools"><input class="search" id="q" placeholder="${esc(t("search"))}" value="${esc(S.q)}" autocomplete="off">
+        <div class="tabs"><button class="tab ${S.tab==="wait"?"on":""}" data-t="wait">${t("waiting")} (${waiting.length})</button>
+        <button class="tab ${S.tab==="done"?"on":""}" data-t="done">${t("done")} (${done.length})</button></div></div>
+      <div class="list" id="list">${shown.length?"":`<div class="empty">${t(S.q.trim()?"nomatch":"none")}</div>`}</div>
+    </section>
+    <section class="right" id="right"></section>
+  </main>`;
+  const list=document.getElementById("list");
+  for(const p of shown){
+    const r=document.createElement("div");r.className="row"+(S.sel===p.gid?" sel":"");
+    const f=p.photo||p.label;
+    r.innerHTML=`<img class="thumb" alt=""><div class="info"><div class="nm">${esc(p.name)}</div>${p.tracking?`<div class="tr">${esc(p.tracking)}</div>`:""}
+      <div class="meta">${p.shelf?`<span class="badge">${t("shelf")} ${esc(p.shelf)}</span>`:""}
+      <span style="color:${p.delivered?"var(--sub)":waitColor(p.created)}">${p.delivered?t("deliveredOn")+" "+ago(p.delivered):ago(p.created)}${p.by?" · "+esc(p.by):""}</span></div></div>`;
+    fillImg(r.querySelector("img"),f);
+    r.onclick=()=>{S.sel=p.gid;document.body.classList.add("showdetail");render();};
+    list.appendChild(r);}
+  const q=document.getElementById("q");
+  q.oninput=()=>{S.q=q.value;renderListOnly();};
+  if(hadFocus){q.focus();q.setSelectionRange(q.value.length,q.value.length);}
+  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;S.sel=null;render();});
+  document.getElementById("add").onclick=()=>openForm(null);
+  document.getElementById("set").onclick=openSettings;
+  document.getElementById("back").onclick=()=>{document.body.classList.remove("showdetail");S.sel=null;render();};
+  renderDetail();
+}
+function renderListOnly(){const y=S.q;render();}
+function renderDetail(){
+  const right=document.getElementById("right");const p=S.sel&&S.parcels.get(S.sel);
+  if(!p){right.innerHTML=`<div class="empty">${t("pick")}</div>`;document.body.classList.remove("showdetail");return;}
+  let which=p.photo?"photo":"label";
+  right.innerHTML=`<div class="bigimg"><img id="bi" alt=""><span id="noph" style="color:var(--sub)">${t("nophoto")}</span></div>
+  ${p.photo&&p.label?`<div class="sw"><button class="tab" id="swp">${t("parcel")}</button><button class="tab" id="swl">${t("label")}</button></div>`:""}
+  <div class="panel"><h2>${esc(p.name)}</h2>
+    ${p.shelf?`<div style="margin-top:10px"><span class="badge" style="font-size:16px;padding:5px 12px">${t("shelf")}: ${esc(p.shelf)}</span></div>`:""}
+    ${p.tracking?`<div class="ltr" style="margin-top:12px;font-weight:700">${esc(p.tracking)}</div>
+    <div class="chips" style="margin-top:8px"><button class="ibtn" id="cp">${t("copy")}</button>
+    <a class="ibtn" style="text-decoration:none;color:inherit" target="_blank" rel="noopener" href="https://www.dhl.com/de-de/home/tracking/tracking-parcel.html?submit=1&tracking-id=${encodeURIComponent(p.tracking)}">${t("track")}</a></div>`:""}
+    ${p.by?`<div style="margin-top:12px;color:var(--sub);font-size:13px">${t("by")}: ${esc(p.by)}</div>`:""}
+    <div style="margin-top:4px;color:var(--sub);font-size:13px">${t("received")}: ${fmt(p.created)} (${ago(p.created)})</div>
+    ${p.delivered?`<div style="margin-top:4px;color:var(--green);font-weight:600;font-size:13px">${t("deliveredOn")}: ${fmt(p.delivered)}</div>`:""}
+    ${p.note?`<div style="margin-top:12px">${esc(p.note)}</div>`:""}</div>
+  <div class="actions">
+    ${p.delivered?`<button class="ibtn" id="und">${t("undo")}</button>`:`<button class="primary" id="hand">${t("handover")}</button>`}
+    <button class="ibtn" id="ed">${t("edit")}</button><button class="ibtn danger" id="rm">${t("del")}</button></div>`;
+  const bi=document.getElementById("bi"),noph=document.getElementById("noph");
+  const show=()=>{const f=which==="photo"?p.photo:p.label;bi.removeAttribute("src");noph.style.display=f?"none":"";bi.style.display=f?"":"none";fillImg(bi,f);
+    const a=document.getElementById("swp"),b=document.getElementById("swl");if(a){a.classList.toggle("on",which==="photo");b.classList.toggle("on",which==="label");}};
+  show();
+  const a=document.getElementById("swp"),b=document.getElementById("swl");
+  if(a){a.onclick=()=>{which="photo";show();};b.onclick=()=>{which="label";show();};}
+  bi.onclick=()=>{document.getElementById("fullimg").src=bi.src;document.getElementById("full").showModal();};
+  const cp=document.getElementById("cp");if(cp)cp.onclick=()=>{navigator.clipboard.writeText(p.tracking);toast(t("copied"));};
+  const hand=document.getElementById("hand");if(hand)hand.onclick=()=>{if(confirm(t("handq")+" "+p.name+"?")){p.delivered=Date.now();touch(p);}};
+  const und=document.getElementById("und");if(und)und.onclick=()=>{p.delivered=0;S.tab="wait";touch(p);};
+  document.getElementById("ed").onclick=()=>openForm(p);
+  document.getElementById("rm").onclick=()=>{if(confirm(t("delq")))removeParcel(p);};
+}
+document.getElementById("full").onclick=()=>document.getElementById("full").close();
+
+function renderSetup(){
+  document.body.classList.remove("showdetail");
+  app.innerHTML=`<div class="setup"><h1>${t("setupT")}</h1><p>${t("setupP")}</p>
+  <label class="f">${t("code")}</label><input class="t ltr" id="code" autocomplete="off" value="${esc(S.kiosk)}">
+  <label class="f">${t("who")}</label><input class="t" id="who" value="${esc(S.who)}">
+  <div style="margin-top:18px;display:flex;gap:10px;align-items:center"><button class="primary" id="go">${t("link")}</button>
+  <select id="lg" class="ibtn">${Object.keys(LN).map(k=>`<option value="${k}" ${k===lang?"selected":""}>${LN[k]}</option>`).join("")}</select></div></div>`;
+  document.getElementById("lg").onchange=e=>{lang=e.target.value;localStorage.setItem("lang",lang);render();};
+  document.getElementById("go").onclick=()=>{
+    const c=document.getElementById("code").value.trim().toLowerCase().replace(/[^a-z0-9\u0600-\u06FF_-]/g,"");
+    if(c.length<6){toast(t("codeShort"));return;}
+    S.kiosk=c;S.who=document.getElementById("who").value.trim();localStorage.setItem("kiosk",c);localStorage.setItem("who",S.who);
+    S.parcels.clear();start();render();};
+}
+
+// ---------------- settings ----------------
+function openSettings(){
+  const d=document.getElementById("dlg");
+  d.innerHTML=`<div class="dlg"><h3>${t("settings")}</h3>
+  <label class="f">${t("lang")}</label><select class="t" id="s_l">${Object.keys(LN).map(k=>`<option value="${k}" ${k===lang?"selected":""}>${LN[k]}</option>`).join("")}</select>
+  <label class="f">${t("retention")}</label><select class="t" id="s_r">${[7,14,30,90,0].map(v=>`<option value="${v}" ${v===S.retention?"selected":""}>${v?v+" "+t("days"):t("never")}</option>`).join("")}</select>
+  <label class="f">${t("code")}</label><input class="t ltr" id="s_c" value="${esc(S.kiosk)}" readonly>
+  <label class="f">${t("who")}</label><input class="t" id="s_w" value="${esc(S.who)}">
+  <div class="actions"><button class="primary" id="s_ok">${t("save")}</button><button class="ibtn danger" id="s_dc">${t("disconnect")}</button><button class="ibtn" id="s_x">${t("close")}</button></div></div>`;
+  d.showModal();
+  document.getElementById("s_x").onclick=()=>d.close();
+  document.getElementById("s_ok").onclick=()=>{lang=document.getElementById("s_l").value;localStorage.setItem("lang",lang);
+    S.retention=parseInt(document.getElementById("s_r").value);localStorage.setItem("retention",S.retention);
+    S.who=document.getElementById("s_w").value.trim();localStorage.setItem("who",S.who);d.close();purge();render();};
+  document.getElementById("s_dc").onclick=()=>{if(S.unsub)S.unsub();S.unsub=null;localStorage.removeItem("kiosk");S.kiosk="";S.parcels.clear();S.sel=null;d.close();render();};
+}
+
+// ---------------- add / edit ----------------
+function openForm(edit){
+  const d=document.getElementById("dlg");
+  const dr={gid:edit?edit.gid:"",created:edit?edit.created:0,delivered:edit?edit.delivered:0,by:edit?edit.by:S.who,
+    photo:edit?edit.photo:"",label:edit?edit.label:"",newImgs:new Map(),oldNames:[],autoName:""};
+  d.innerHTML=`<div class="dlg"><h3>${t(edit?"editTitle":"newTitle")}</h3>
+  <div class="slots">
+    <div class="slot" id="sl0"></div><div class="slot" id="sl1"></div></div>
+  <div class="status" id="st"></div>
+  <label class="f">${t("name")}</label><input class="t" id="f_n" autocomplete="off" value="${esc(edit?edit.name:"")}">
+  <label class="f">${t("tracking")}</label><input class="t ltr" id="f_t" autocomplete="off" value="${esc(edit?edit.tracking:"")}">
+  <label class="f">${t("shelfF")}</label><input class="t" id="f_s" autocomplete="off" value="${esc(edit?edit.shelf:"")}">
+  <label class="f">${t("note")}</label><input class="t" id="f_o" autocomplete="off" value="${esc(edit?edit.note:"")}">
+  <div id="lh" style="display:none;margin-top:14px;color:var(--sub);font-size:12px">${t("lineHint")}</div><div class="chips" id="lines" style="margin-top:8px"></div>
+  <div class="actions"><button class="primary" id="sv">${t("save")}</button>${edit?"":`<button class="ibtn" id="sn">${t("saveNew")}</button>`}<button class="ibtn" id="cx">${t("cancel")}</button></div></div>
+  <input type="file" accept="image/*" id="fi" hidden>`;
+  d.showModal();
+  const $=id=>document.getElementById(id);
+  let target=0;
+  function slots(){
+    for(const k of [0,1]){const el=$("sl"+k);const name=k?dr.label:dr.photo;
+      el.innerHTML=(name?`<img alt="">`:`<div class="ttl">${t(k?"scanLabel":"shootParcel")}</div>`)+
+        `<div class="bar"><button data-a="up" data-k="${k}">${t("upload")}</button><button data-a="cam" data-k="${k}">${t("camera")}</button></div>`;
+      if(name){const im=el.querySelector("img");if(dr.newImgs.has(name))im.src=dr.newImgs.get(name);else fillImg(im,name);}}
+    d.querySelectorAll(".bar button").forEach(b=>b.onclick=()=>{target=+b.dataset.k;if(b.dataset.a==="up")$("fi").click();else camera(target);});}
+  slots();
+  async function setImage(k,blob){
+    const url=await shrink(blob);const name=newName(k?"l":"p");
+    const old=k?dr.label:dr.photo;if(old){if(dr.newImgs.has(old))dr.newImgs.delete(old);else dr.oldNames.push(old);}
+    dr.newImgs.set(name,url);if(k)dr.label=name;else dr.photo=name;slots();
+    if(k)readLabel(url);}
+  async function readLabel(url){
+    const st=$("st");st.className="status busy";st.textContent=t("loadingOcr");
+    try{
+      const r=await runOcr(url,s=>{st.textContent=s==="load"?t("loadingOcr"):t("reading");});
+      const n=$("f_n"),tr=$("f_t");
+      if(r.name&&(!n.value.trim()||n.value===dr.autoName)){n.value=r.name;dr.autoName=r.name;}
+      if(r.tracking&&!tr.value.trim())tr.value=r.tracking;
+      st.className="status";st.textContent=t("readDone")+": "+t(r.tracking?"foundT":"noT")+" "+t(r.name?"andName":"pickName");
+      $("lh").style.display=r.lines.length?"":"none";
+      const box=$("lines");box.innerHTML="";
+      for(const l of r.lines){const b=document.createElement("button");b.className="line";b.textContent=l;b.onclick=()=>{$("f_n").value=l;};box.appendChild(b);}
+    }catch(e){st.className="status";st.style.color="var(--red)";st.textContent=t("ocrFail");}}
+  $("fi").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f)await setImage(target,f);};
+  async function camera(k){
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1920}}});}catch(e){toast(t("nocam"));return;}
+    const cd=document.createElement("dialog");cd.innerHTML=`<div class="dlg"><video autoplay playsinline></video><div class="actions"><button class="primary" id="sn2">${t("snap")}</button><button class="ibtn" id="cl2">${t("close")}</button></div></div>`;
+    document.body.appendChild(cd);const v=cd.querySelector("video");v.srcObject=stream;cd.showModal();
+    const stop=()=>{stream.getTracks().forEach(x=>x.stop());cd.close();cd.remove();};
+    cd.querySelector("#cl2").onclick=stop;
+    cd.querySelector("#sn2").onclick=async()=>{const c=document.createElement("canvas");c.width=v.videoWidth;c.height=v.videoHeight;c.getContext("2d").drawImage(v,0,0);
+      const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.9));stop();await setImage(k,blob);};}
+  $("cx").onclick=()=>d.close();
+  async function save(again){
+    const name=$("f_n").value.trim();if(!name){toast(t("needName"));$("f_n").focus();return;}
+    const tr=$("f_t").value.trim();
+    if(tr&&[...S.parcels.values()].some(p=>p.tracking===tr&&!p.delivered&&p.gid!==dr.gid)&&!confirm(t("dup")))return;
+    const p={gid:dr.gid||doc(collection(fdb,"x")).id,name,tracking:tr,shelf:$("f_s").value.trim(),note:$("f_o").value.trim(),photo:dr.photo,label:dr.label,
+      created:edit?dr.created:Date.now(),delivered:dr.delivered,updated:Date.now(),by:dr.by};
+    $("sv").disabled=true;
+    try{
+      for(const [n,u] of dr.newImgs){imgCache.set(n,u);await pushImage(n,u);}
+      await pushParcel(p);S.parcels.set(p.gid,p);
+      for(const n of dr.oldNames)deleteDoc(doc(fdb,"kiosks",S.kiosk,"images",n)).catch(()=>{});
+      toast(t("saved"));S.sel=p.gid;d.close();render();if(again)openForm(null);
+    }catch(e){$("sv").disabled=false;toast(String(e&&e.message||e));}}
+  $("sv").onclick=()=>save(false);const sn=$("sn");if(sn)sn.onclick=()=>save(true);
+}
+
+applyLang();
+render();
+if(S.kiosk)start();
+setInterval(()=>{if(S.kiosk&&!document.querySelector("dialog[open]"))render();},60000);
+</script>
+</body>
+</html>
