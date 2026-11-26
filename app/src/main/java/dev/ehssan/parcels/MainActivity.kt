@@ -55,6 +55,7 @@ class Draft {
     var label = ""
     var gid = ""
     var by = ""
+    var autoName = ""
     var lines: List<String> = emptyList()
     var status = ""
     val newFiles = ArrayList<String>()
@@ -793,7 +794,12 @@ class MainActivity : Activity() {
             draft.lines = r.lines
             val n = nameEt
             val t = trackEt
-            if (n != null && n.text.isNullOrBlank() && r.nameGuess != null) n.setText(r.nameGuess)
+            if (n != null && r.nameGuess != null &&
+                (n.text.isNullOrBlank() || n.text.toString() == draft.autoName)
+            ) {
+                n.setText(r.nameGuess)
+                draft.autoName = r.nameGuess
+            }
             if (t != null && t.text.isNullOrBlank() && r.trackingGuess != null) t.setText(r.trackingGuess)
             val found = L.t(if (r.trackingGuess != null) "تم العثور على رقم التتبع" else "لم يُعثر على رقم تتبع")
             val nm = L.t(if (r.nameGuess != null) "والاسم" else "؛ اختر الاسم من الأسطر")
