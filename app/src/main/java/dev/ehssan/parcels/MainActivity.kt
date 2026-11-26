@@ -32,8 +32,8 @@ import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.google.android.gms.codescanner.GmsBarcodeScannerOptions
-import com.google.android.gms.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
