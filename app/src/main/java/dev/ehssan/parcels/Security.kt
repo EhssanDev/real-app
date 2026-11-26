@@ -128,7 +128,7 @@ object Bio {
     fun prompt(activity: Activity, title: String, onOk: () -> Unit, onFail: () -> Unit) {
         val builder = BiometricPrompt.Builder(activity)
             .setTitle(title)
-            .setNegativeButton("استخدم الرمز", activity.mainExecutor) { _, _ -> onFail() }
+            .setNegativeButton(L.t("استخدم الرمز"), activity.mainExecutor) { _, _ -> onFail() }
         if (Build.VERSION.SDK_INT >= 30) {
             builder.setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or

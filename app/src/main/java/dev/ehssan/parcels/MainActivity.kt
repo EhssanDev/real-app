@@ -94,6 +94,7 @@ class MainActivity : Activity() {
     private var homeQuery = ""
     private var homeRefresh: (() -> Unit)? = null
     private var syncState = ""
+    private lateinit var rootView: FrameLayout
 
     private var draft = Draft()
     private var captureTarget = 0
@@ -113,7 +114,7 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+    private fun toast(s: String) = Toast.makeText(this, L.t(s), Toast.LENGTH_SHORT).show()
 
     private fun rounded(color: Int, r: Int): GradientDrawable {
         val d = GradientDrawable()
@@ -126,7 +127,7 @@ class MainActivity : Activity() {
 
     private fun label(text: String, sp: Float, color: Int, bold: Boolean = false): TextView {
         val t = TextView(this)
-        t.text = text
+        t.text = L.t(text)
         t.textSize = sp
         t.setTextColor(color)
         if (bold) t.typeface = Typeface.DEFAULT_BOLD
@@ -174,9 +175,9 @@ class MainActivity : Activity() {
     private fun ago(t: Long): String {
         val d = ((System.currentTimeMillis() - t) / DAY).toInt()
         return when (d) {
-            0 -> "اليوم"
-            1 -> "أمس"
-            else -> "قبل $d أيام"
+            0 -> L.t("اليوم")
+            1 -> L.t("أمس")
+            else -> L.daysAgo(d)
         }
     }
 
@@ -210,7 +211,7 @@ class MainActivity : Activity() {
     private fun startSync() {
         Sync.onChange = { homeRefresh?.invoke() }
         Sync.onNewParcel = { p ->
-            toast("شحنة جديدة: " + p.name + if (p.by.isNotEmpty()) " (" + p.by + ")" else "")
+            toast(L.t("شحنة جديدة") + ": " + p.name + if (p.by.isNotEmpty()) " (" + p.by + ")" else "")
         }
         Sync.onState = { s ->
             syncState = s
@@ -233,7 +234,10 @@ class MainActivity : Activity() {
         content = FrameLayout(this)
         content.setBackgroundColor(bg)
         lock = LockView(this)
+        L.load(this)
         val root = FrameLayout(this)
+        rootView = root
+        root.layoutDirection = L.dir()
         root.addView(content, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(lock, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
@@ -271,7 +275,7 @@ class MainActivity : Activity() {
         if (!Pin.isSet(this)) {
             lock.showSetup(false, { locked = false }, null)
         } else {
-            lock.showUnlock("افتح Parcel Desk", true, false, { locked = false }, null, true)
+            lock.showUnlock("افتح Mina's Kiosk DHL", true, false, { locked = false }, null, true)
         }
     }
 
@@ -314,9 +318,9 @@ class MainActivity : Activity() {
         head.gravity = Gravity.CENTER_VERTICAL
         val titles = LinearLayout(this)
         titles.orientation = LinearLayout.VERTICAL
-        titles.addView(label("Parcel Desk", 24f, Color.WHITE, true))
+        titles.addView(label("Mina's Kiosk DHL", 22f, Color.WHITE, true))
         val sub = label(
-            "${waiting.size} شحنة بانتظار الاستلام" + if (overdue > 0) " · $overdue متأخرة" else "",
+            L.waiting(waiting.size, overdue),
             13f, if (overdue > 0) red else textSub
         )
         titles.addView(sub)
@@ -334,7 +338,7 @@ class MainActivity : Activity() {
         pill.addView(icon(Ic.SEARCH, 20, textSub), lin(dp(26), dp(26)))
         val search = EditText(this)
         search.setSingleLine(true)
-        search.hint = "اكتب اسم الزبون أو رقم الشحنة"
+        search.hint = L.t("اكتب اسم الزبون أو رقم الشحنة")
         search.textSize = 16f
         search.setTextColor(textMain)
         search.setHintTextColor(textSub)
@@ -380,11 +384,11 @@ class MainActivity : Activity() {
             homeQuery = search.text.toString()
             val w = db.all(false)
             val od = w.count { (System.currentTimeMillis() - it.created) / DAY >= warnDays() }
-            sub.text = "${w.size} شحنة بانتظار الاستلام" + if (od > 0) " · $od متأخرة" else ""
+            sub.text = L.waiting(w.size, od)
             sub.setTextColor(if (od > 0) red else textSub)
             val shown = Search.filter(db.all(homeTab == 1), homeQuery)
             adapter.set(shown)
-            empty.text = if (homeQuery.isNotBlank()) "لا نتائج مطابقة" else "لا توجد شحنات"
+            empty.text = L.t(if (homeQuery.isNotBlank()) "لا نتائج مطابقة" else "لا توجد شحنات")
             empty.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
         }
         search.addTextChangedListener(object : TextWatcher {
@@ -473,12 +477,12 @@ class MainActivity : Activity() {
             meta.gravity = Gravity.CENTER_VERTICAL
             meta.setPadding(0, dp(6), 0, 0)
             if (p.shelf.isNotEmpty()) {
-                val s = label("رف " + p.shelf, 12f, dark, true)
+                val s = label(L.t("رف") + " " + p.shelf, 12f, dark, true)
                 s.background = rounded(amber, 8)
                 s.setPadding(dp(8), dp(3), dp(8), dp(3))
                 meta.addView(s)
             }
-            val whenText = (if (p.delivered > 0) "سُلّمت " + ago(p.delivered) else ago(p.created)) +
+            val whenText = (if (p.delivered > 0) L.t("سُلّمت") + " " + ago(p.delivered) else ago(p.created)) +
                 (if (p.by.isNotEmpty()) " · " + p.by else "")
             val w = label(whenText, 12f, if (p.delivered > 0) textSub else waitColor(p.created), true)
             w.setPadding(if (p.shelf.isNotEmpty()) dp(10) else 0, 0, 0, 0)
@@ -782,7 +786,7 @@ class MainActivity : Activity() {
         draft.label = name
         draft.newFiles.add(name)
         fillPhotoCells()
-        draft.status = "جارٍ قراءة الملصق..."
+        draft.status = L.t("جارٍ قراءة الملصق...")
         statusTv?.setTextColor(amber)
         statusTv?.text = draft.status
         Ocr.analyze(this, Uri.fromFile(Img.file(this, name))) { r ->
@@ -791,9 +795,9 @@ class MainActivity : Activity() {
             val t = trackEt
             if (n != null && n.text.isNullOrBlank() && r.nameGuess != null) n.setText(r.nameGuess)
             if (t != null && t.text.isNullOrBlank() && r.trackingGuess != null) t.setText(r.trackingGuess)
-            val found = if (r.trackingGuess != null) "تم العثور على رقم التتبع" else "لم يُعثر على رقم تتبع"
-            val nm = if (r.nameGuess != null) "والاسم" else "؛ اختر الاسم من الأسطر"
-            draft.status = "تمت القراءة: $found $nm"
+            val found = L.t(if (r.trackingGuess != null) "تم العثور على رقم التتبع" else "لم يُعثر على رقم تتبع")
+            val nm = L.t(if (r.nameGuess != null) "والاسم" else "؛ اختر الاسم من الأسطر")
+            draft.status = L.t("تمت القراءة") + ": " + found + " " + nm
             statusTv?.setTextColor(green)
             statusTv?.text = draft.status
             fillChips()
@@ -832,10 +836,10 @@ class MainActivity : Activity() {
         val dup = tr.isNotEmpty() && db.all(false).any { it.tracking == tr && it.id != draft.editId }
         if (dup) {
             AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setMessage("رقم التتبع هذا موجود مسبقاً بين الشحنات الموجودة. حفظ على أي حال؟")
-                .setPositiveButton("حفظ") { _, _ -> doSave() }
-                .setNegativeButton("إلغاء", null)
-                .show()
+                .msg("رقم التتبع هذا موجود مسبقاً بين الشحنات الموجودة. حفظ على أي حال؟")
+                .setPositiveButton(L.t("حفظ")) { _, _ -> doSave() }
+                .setNegativeButton(L.t("إلغاء"), null)
+                .go()
         } else {
             doSave()
         }
@@ -923,7 +927,7 @@ class MainActivity : Activity() {
         info.setPadding(dp(16), dp(14), dp(16), dp(14))
         info.addView(label(p.name, 24f, Color.WHITE, true))
         if (p.shelf.isNotEmpty()) {
-            val s = label("الرف: " + p.shelf, 16f, dark, true)
+            val s = label(L.t("الرف") + ": " + p.shelf, 16f, dark, true)
             s.background = rounded(amber, 10)
             s.setPadding(dp(12), dp(5), dp(12), dp(5))
             info.addView(s, lin(WRAP, WRAP).also { it.topMargin = dp(10) })
@@ -957,13 +961,13 @@ class MainActivity : Activity() {
             info.addView(r)
         }
         if (p.by.isNotEmpty()) {
-            info.addView(label("أضافها: " + p.by, 13f, textSub).also { it.setPadding(0, dp(12), 0, 0) })
+            info.addView(label(L.t("أضافها") + ": " + p.by, 13f, textSub).also { it.setPadding(0, dp(12), 0, 0) })
         }
-        val recv = label("استُلمت: " + dateFmt.format(Date(p.created)) + " (" + ago(p.created) + ")", 13f, textSub)
+        val recv = label(L.t("استُلمت") + ": " + dateFmt.format(Date(p.created)) + " (" + ago(p.created) + ")", 13f, textSub)
         recv.setPadding(0, dp(4), 0, 0)
         info.addView(recv)
         if (p.delivered > 0) {
-            info.addView(label("سُلّمت: " + dateFmt.format(Date(p.delivered)), 13f, green, true).also {
+            info.addView(label(L.t("سُلّمت") + ": " + dateFmt.format(Date(p.delivered)), 13f, green, true).also {
                 it.setPadding(0, dp(4), 0, 0)
             })
         }
@@ -976,15 +980,15 @@ class MainActivity : Activity() {
         if (p.delivered == 0L) {
             col.addView(primary("تم التسليم") {
                 AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setMessage("تسليم الشحنة إلى ${p.name}؟")
-                    .setPositiveButton("تسليم") { _, _ ->
+                    .msg(L.handover(p.name))
+                    .setPositiveButton(L.t("تسليم")) { _, _ ->
                         p.delivered = System.currentTimeMillis()
                         touch(p)
-                        toast("تم التسليم")
+                        toast("تم التسليم ✓")
                         showHome()
                     }
-                    .setNegativeButton("إلغاء", null)
-                    .show()
+                    .setNegativeButton(L.t("إلغاء"), null)
+                    .go()
             }, lin(MATCH, WRAP).also { it.topMargin = dp(18) })
         } else {
             col.addView(secondary("إرجاع إلى الشحنات الموجودة") {
@@ -1000,13 +1004,13 @@ class MainActivity : Activity() {
         row.addView(
             chip("حذف", Color.rgb(120, 40, 40)) {
                 AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setMessage("حذف هذه الشحنة نهائياً مع صورها؟")
-                    .setPositiveButton("حذف") { _, _ ->
+                    .msg("حذف هذه الشحنة نهائياً مع صورها؟")
+                    .setPositiveButton(L.t("حذف")) { _, _ ->
                         wipe(p)
                         showHome()
                     }
-                    .setNegativeButton("إلغاء", null)
-                    .show()
+                    .setNegativeButton(L.t("إلغاء"), null)
+                    .go()
             }.also { it.setPadding(dp(26), dp(14), dp(26), dp(14)) },
             lin(WRAP, WRAP).also { it.marginStart = dp(10) }
         )
@@ -1052,17 +1056,22 @@ class MainActivity : Activity() {
         col.addView(Space(this), lin(MATCH, dp(10)))
 
         val ret = retentionDays()
-        col.addView(settingRow("حذف الشحنات المسلّمة بعد", if (ret <= 0) "أبداً" else "$ret يوم") {
+        col.addView(settingRow("حذف الشحنات المسلّمة بعد", if (ret <= 0) L.t("أبداً") else L.dayCount(ret)) {
             cfg().edit().putInt("retention", next(ret, listOf(7, 14, 30, 90, 0))).apply()
             showSettings()
         })
         val warn = warnDays()
-        col.addView(settingRow("تنبيه التأخير بعد", "$warn أيام") {
+        col.addView(settingRow("تنبيه التأخير بعد", L.days(warn)) {
             cfg().edit().putInt("warn", next(warn, listOf(3, 5, 7, 10, 14))).apply()
             showSettings()
         })
-        col.addView(settingRow("مزامنة الكشك", if (Sync.enabled(this)) Sync.kiosk(this) + " · " + syncState else "غير مفعّلة") {
+        col.addView(settingRow("مزامنة الكشك", if (Sync.enabled(this)) Sync.kiosk(this) + " · " + L.t(syncState) else L.t("غير مفعّلة")) {
             showSyncSetup(true)
+        })
+        col.addView(settingRow("اللغة", L.name()) {
+            L.set(this, L.next())
+            rootView.layoutDirection = L.dir()
+            showSettings()
         })
         col.addView(settingRow("تغيير رمز القفل", "") {
             lock.showUnlock("الرمز الحالي", false, true, {
@@ -1072,8 +1081,8 @@ class MainActivity : Activity() {
         col.addView(settingRow("تصدير القائمة (CSV)", "") { exportCsv() })
         col.addView(settingRow("حذف كل البيانات", "") {
             AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setMessage("سيتم حذف كل الشحنات وصورها نهائياً" + (if (Sync.enabled(this)) " عند جميع العاملين" else "") + ". متابعة؟")
-                .setPositiveButton("حذف الكل") { _, _ ->
+                .msg(L.t("سيتم حذف كل الشحنات وصورها نهائياً") + (if (Sync.enabled(this)) " " + L.t("عند جميع العاملين") else "") + ". " + L.t("متابعة؟"))
+                .setPositiveButton(L.t("حذف الكل")) { _, _ ->
                     for (p in db.clearAll()) {
                         deleteFiles(p)
                         Sync.remove(this, p)
@@ -1081,8 +1090,8 @@ class MainActivity : Activity() {
                     toast("تم الحذف")
                     showHome()
                 }
-                .setNegativeButton("إلغاء", null)
-                .show()
+                .setNegativeButton(L.t("إلغاء"), null)
+                .go()
         })
 
         val note = label(
@@ -1113,7 +1122,7 @@ class MainActivity : Activity() {
             i.putExtra(Intent.EXTRA_STREAM, uri)
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             skipLock = true
-            startActivity(Intent.createChooser(i, "تصدير"))
+            startActivity(Intent.createChooser(i, L.t("تصدير")))
         } catch (e: Exception) {
             skipLock = false
             toast("تعذر التصدير")
@@ -1159,10 +1168,10 @@ class MainActivity : Activity() {
             }
             if (old.isNotEmpty() && old != c) {
                 AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setMessage("سيُمسح ما على هذا الجوال ويُحمَّل محتوى الكشك الجديد. متابعة؟")
-                    .setPositiveButton("متابعة") { _, _ -> go() }
-                    .setNegativeButton("إلغاء", null)
-                    .show()
+                    .msg("سيُمسح ما على هذا الجوال ويُحمَّل محتوى الكشك الجديد. متابعة؟")
+                    .setPositiveButton(L.t("متابعة")) { _, _ -> go() }
+                    .setNegativeButton(L.t("إلغاء"), null)
+                    .go()
             } else {
                 go()
             }

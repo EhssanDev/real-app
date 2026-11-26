@@ -64,6 +64,8 @@ class LockView(private val act: Activity) : FrameLayout(act) {
 
     private val keySize: Int
 
+    private var submitView: TextView? = null
+
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private fun circle(color: Int): GradientDrawable {
@@ -168,7 +170,8 @@ class LockView(private val act: Activity) : FrameLayout(act) {
         col.addView(last, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val submit = TextView(act)
-        submit.text = "تأكيد"
+        submit.text = L.t("تأكيد")
+        submitView = submit
         submit.textSize = 17f
         submit.typeface = Typeface.DEFAULT_BOLD
         submit.gravity = Gravity.CENTER
@@ -185,7 +188,7 @@ class LockView(private val act: Activity) : FrameLayout(act) {
         }
         col.addView(submit, LinearLayout.LayoutParams(keySize * 3 + dp(14 * 3), dp(52)).also { it.topMargin = dp(14) })
 
-        cancelView.text = "إلغاء"
+        cancelView.text = L.t("إلغاء")
         cancelView.textSize = 15f
         cancelView.gravity = Gravity.CENTER
         cancelView.setTextColor(Color.rgb(170, 178, 192))
@@ -211,7 +214,9 @@ class LockView(private val act: Activity) : FrameLayout(act) {
         step = 0
         first = ""
         entry.setLength(0)
-        titleView.text = title
+        submitView?.text = L.t("تأكيد")
+        cancelView.text = L.t("إلغاء")
+        titleView.text = L.t(title)
         msgView.text = ""
         allowBio = withBio && Bio.available(act)
         cancellable = canCancel
@@ -227,9 +232,11 @@ class LockView(private val act: Activity) : FrameLayout(act) {
         step = 1
         first = ""
         entry.setLength(0)
-        titleView.text = "اختر رمز قفل جديد"
+        submitView?.text = L.t("تأكيد")
+        cancelView.text = L.t("إلغاء")
+        titleView.text = L.t("اختر رمز قفل جديد")
         msgView.setTextColor(Color.rgb(170, 178, 192))
-        msgView.text = "٤ أرقام على الأقل"
+        msgView.text = L.t("٤ أرقام على الأقل")
         allowBio = false
         cancellable = canCancel
         onOk = ok
@@ -321,21 +328,21 @@ class LockView(private val act: Activity) : FrameLayout(act) {
             0 -> {
                 val wait = Pin.lockoutSeconds(act)
                 if (wait > 0) {
-                    fail("حاول بعد $wait ثانية")
+                    fail(L.wait(wait))
                     return
                 }
-                if (Pin.verify(act, pin)) succeed() else fail("الرمز غير صحيح")
+                if (Pin.verify(act, pin)) succeed() else fail(L.t("الرمز غير صحيح"))
             }
 
             1 -> {
                 if (pin.length < 4) {
-                    fail("٤ أرقام على الأقل")
+                    fail(L.t("٤ أرقام على الأقل"))
                     return
                 }
                 first = pin
                 entry.setLength(0)
                 step = 2
-                titleView.text = "أعد إدخال الرمز"
+                titleView.text = L.t("أعد إدخال الرمز")
                 msgView.text = ""
                 refresh()
             }
@@ -347,8 +354,8 @@ class LockView(private val act: Activity) : FrameLayout(act) {
                 } else {
                     step = 1
                     first = ""
-                    titleView.text = "اختر رمز قفل جديد"
-                    fail("الرمزان غير متطابقين")
+                    titleView.text = L.t("اختر رمز قفل جديد")
+                    fail(L.t("الرمزان غير متطابقين"))
                 }
             }
         }
